@@ -1,19 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
-import { firestore } from "./firebase";
-const data = [
-  {
-    id: 1,
-    name: "Book",
-    price: "400",
-    date: new Date("December 14, 2021"),
-  },
-  {
-    id: 2,
-    name: "TV",
-    price: "40000",
-    date: new Date("December 10, 2020"),
-  },
-];
+import db from "./firebase";
+import Spinner from "react-bootstrap/Spinner";
 const months = [
   "Jan",
   "Feb",
@@ -29,8 +16,9 @@ const months = [
   "Dec",
 ];
 const App = () => {
-  const [items, setItems] = useState(data);
+  const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState(items);
+  const [loading, setLoading] = useState(false);
   const name = useRef();
   const price = useRef();
   const date = useRef();
@@ -42,13 +30,10 @@ const App = () => {
       price: price.current.value,
       date: new Date(date.current.value),
     };
-    setItems((items) => [...items, data]);
-    firestore
-      .collection("expense")
-      .doc()
-      .set(data)
-      .then((res) => console.log(res))
-      .catch((err) => console.log(err));
+    db.collection("expenses")
+      .add(data)
+      .then((docRef) => fetchData())
+      .catch((error) => console.log(error));
   };
   const selectHandler = (event) => {
     if (event.target.value === "Selected Year") {
@@ -56,7 +41,8 @@ const App = () => {
       return;
     }
     const selectedItems = items.filter(
-      (item) => event.target.value === item.date.getFullYear().toString()
+      (item) =>
+        event.target.value === new Date(item.date).getFullYear().toString()
     );
     setFilteredItems(selectedItems);
   };
@@ -64,9 +50,37 @@ const App = () => {
     temp.current.value = items;
     setFilteredItems(temp.current.value);
   }, [items]);
+  const fetchData = () => {
+    setLoading(true);
+    db.collection("expenses")
+      .get()
+      .then((res) => {
+        let db_data = [];
+        res._delegate._snapshot.docChanges.forEach((item) => {
+          let idata = item.doc.data.value.mapValue.fields;
+
+          db_data.push({
+            name: idata.name.stringValue,
+            date: idata.date.timestampValue,
+            price: idata.price.stringValue,
+          });
+        });
+        db_data.sort((a, b) => {
+          return new Date(b.date) - new Date(a.date);
+        });
+        setItems(db_data);
+        setLoading(false);
+      })
+      .catch((err) => console.log(err));
+  };
+  useEffect(() => {
+    fetchData();
+  }, []);
   return (
     <div>
-      <h1>Expense App</h1>
+      <nav className="navbar navbar-light bg-light" style={{ padding: "20px" }}>
+        <span className="navbar-brand mb-0 h1">Expense App</span>
+      </nav>
       <form
         style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}
         onSubmit={submitHandler}
@@ -103,34 +117,55 @@ const App = () => {
           <option value="2023">2023</option>
         </select>
       </div>
-      {filteredItems.length === 0 && (
+      {!loading && filteredItems.length === 0 && (
         <div>
           <p className="text-center mt-3 mb-3">No items found</p>
         </div>
       )}
-      <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
-        <table className="table mt-3 mb-3">
-          <thead>
-            <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Price</th>
-              <th scope="col">Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredItems.map((item) => (
-              <tr key={item.date}>
-                <td>{item.name}</td>
-                <td>{item.price} Rs</td>
-                <td style={{ display: "flex", gap: "10px" }}>
-                  <div>{item.date.getDate()}</div>
-                  <div>{months[item.date.getMonth()]}</div>
-                  <div>{item.date.getFullYear()}</div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div>
+        {loading ? (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              margin: "30px 0",
+            }}
+          >
+            {" "}
+            <Spinner animation="border" />
+          </div>
+        ) : (
+          <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
+            {filteredItems && filteredItems.length > 0 && (
+              <table className="table mt-3 mb-3">
+                <thead>
+                  <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Price</th>
+                    <th scope="col">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredItems.map((item) => (
+                    <tr key={item.name}>
+                      <td>{item.name}</td>
+                      <td>{item.price} Rs</td>
+                      <td>
+                        <span style={{ marginRight: "10px" }}>
+                          {new Date(item.date).getDate()}
+                        </span>
+                        <span style={{ marginRight: "10px" }}>
+                          {months[new Date(item.date).getMonth()]}
+                        </span>
+                        <span>{new Date(item.date).getFullYear()}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}{" "}
+          </div>
+        )}
       </div>
     </div>
   );

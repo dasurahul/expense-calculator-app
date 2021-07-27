@@ -1,7 +1,7 @@
 import firebase from "firebase/app";
 import "firebase/firestore";
 
-const firebaseConfig = {
+var firebaseConfig = {
   apiKey: "AIzaSyCXJW0DXCZwq8MPYqbC4FScnh5dNKmlDfY",
   authDomain: "shopping-website-react.firebaseapp.com",
   databaseURL: "https://shopping-website-react-default-rtdb.firebaseio.com",
@@ -14,5 +14,6 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 
-export default firebase;
-export const firestore = firebase.firestore();
+var db = firebase.firestore();
+
+export default db;
